@@ -178,7 +178,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      * @param url KrawlUrl: URL of the page to visit
      * @param parent KrawlUrl: The URL of the parent page
      */
-    open protected fun onRepeatVisit(url: KrawlUrl, parent: KrawlUrl) {
+    open protected fun onRepeatVisit(url: KrawlUrl, parent: KrawlUrl, depth: Int, rootPageId: Int) {
         return
     }
 
@@ -395,7 +395,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
         // Do a history check
         val history: KrawlHistoryEntry =
                 if (krawlHistory!!.hasBeenSeen(krawlUrl)) { // If it has been seen
-                    onRepeatVisit(krawlUrl, parent)
+                    onRepeatVisit(krawlUrl, parent, depth, rootPageId)
                     logger.debug("History says no")
                     return@async KrawlAction.Noop()
                 } else {
