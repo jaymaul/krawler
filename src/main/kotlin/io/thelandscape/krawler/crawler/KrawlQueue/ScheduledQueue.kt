@@ -86,11 +86,13 @@ class ScheduledQueue(private val queues: List<KrawlQueueIf>,
 			var entry: KrawlQueueEntry? = queues[index].pop()
 			
 			while (entry == null) {
-				logger.debug("Delaying queue:$index for 1000...")
+				logger.trace("Delaying queue:$index for 1000...")
                 delay(1000)
                 entry = queues[index].pop()
             }
-            
+
+            logger.debug("krawlQueueEntryChannel.send("+ entry.toString() +")")
+
             krawlQueueEntryChannel.send(entry)
         }
     }

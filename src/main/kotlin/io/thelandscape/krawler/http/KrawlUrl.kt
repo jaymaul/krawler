@@ -206,6 +206,12 @@ class KrawlUrl private constructor(val rawUrl: String,
                     continue
                 }
 
+                if (c == '|') {
+                    path = path.slice(0 until idx) + "%7C" + path.slice(idx + 1 until path.length)
+                    idx += 3
+                    continue
+                }
+
                 if (c == '%') {
                     val nextTwoChars: String = if (idx + 1  >= path.length) {
                         idx++
