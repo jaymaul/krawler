@@ -32,12 +32,13 @@ object krawlHistoryTable : Table<KrawlHistoryEntry, Long>("KrawlHistory",
 
     val Id by col(KrawlHistoryEntry::id, id = true)
     val Url by col(KrawlHistoryEntry::url)
+    val RootPageId by col(KrawlHistoryEntry::rootPageId)
     val Timestamp by col(KrawlHistoryEntry::timestamp)
 
     override fun idColumns(id: Long) = setOf(Id of id)
 
     override fun create(value: Value<KrawlHistoryEntry>) =
-            KrawlHistoryEntry(value of Id, value of Url, value of Timestamp)
+            KrawlHistoryEntry(value of Id, value of Url, value of RootPageId, value of Timestamp)
 
 }
 
@@ -55,12 +56,14 @@ class KrawlHistoryHSQLDao(session: Session):
     init {
         // Create queue table
         session.update("CREATE TABLE IF NOT EXISTS KrawlHistory " +
-                "(id INT IDENTITY, url VARCHAR(2048), timestamp TIMESTAMP)")
+                "(id INT IDENTITY, root_page_id INT, url VARCHAR(2048), timestamp TIMESTAMP)")
     }
 
-    override fun insert(url: KrawlUrl): KrawlHistoryEntry {
+    override fun insert(url: KrawlUrl, rootPageId: Int): KrawlHistoryEntry {
         val retVal = try {
-            insert(KrawlHistoryEntry(-1, url.canonicalForm, LocalDateTime.now()))
+            val entry = KrawlHistoryEntry(-1, url.canonicalForm, rootPageId, LocalDateTime.now())
+            logger.info("Inserting into history: " + entry)
+            insert(entry)
         } catch (e: Throwable) {
             logger.error("There was an error inserting ${url.canonicalForm} to the KrawlHistory.")
             KrawlHistoryEntry()
@@ -77,9 +80,9 @@ class KrawlHistoryHSQLDao(session: Session):
         return res
     }
 
-    override fun hasBeenSeen(url: KrawlUrl): Boolean {
-        val params = mapOf("url" to url.canonicalForm)
-        val res = session.select("SELECT COUNT(*) FROM ${table.name} WHERE url = :url",
+    override fun hasBeenSeen(url: KrawlUrl, rootPageId: Int): Boolean {
+        val params = mapOf("url" to url.canonicalForm, "rootPageId" to rootPageId)
+        val res = session.select("SELECT COUNT(*) FROM ${table.name} WHERE url = :url and root_page_id = :rootPageId",
                 params, mapper = { it.resultSet.getLong(1) })
 
         return res.first() != 0L

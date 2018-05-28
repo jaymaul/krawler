@@ -84,7 +84,8 @@ class KrawlQueueHSQLDao(name: String,
         // No need to synchronize here, current implementation only uses a single thread to pop URLs
         val out: List<KrawlQueueEntry> = session.select(selectSql, mapper = table.rowMapper())
         if (out.isNotEmpty())
-            session.update("DELETE FROM ${table.name} WHERE url = :id", mapOf("id" to out.first().url))
+            session.update("DELETE FROM ${table.name} WHERE url = :id and root_page_id = :rootPageId", mapOf("id" to out.first().url, "rootPageId" to out.first().rootPageId))
+            //session.update("DELETE FROM ${table.name} WHERE url = :id", mapOf("id" to out.first().url))
 
         return out.fetch(Node.all).firstOrNull()
     }

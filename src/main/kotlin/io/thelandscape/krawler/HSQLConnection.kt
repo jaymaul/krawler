@@ -25,7 +25,6 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import java.time.LocalDateTime
 
-
 internal class HSQLConnection(fileBacked: Boolean, fileName: String = ".krawl_tmp") {
 
     var ds: HikariDataSource

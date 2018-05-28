@@ -219,15 +219,28 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
     fun submitUrl(url: String, priority: Byte = 0,
                   beforeSchedule: (KrawlQueueEntry) -> Unit = { _ -> }): Int {
 
+        logger.info("submitUrl: url = " + url)
+
         // Convert URL to KrawlUrl so we can get the canonical form
         val url = KrawlUrl.new(url)
 
+        logger.info("submitUrl: krawlUrl.rawUrl = " + url.rawUrl)
+
         val rootPageId: Int = maximumUsedId.getAndIncrement()
+
+        logger.info("submitUrl: rootPageId = " + rootPageId)
+
         _rootPageIds[url.rawUrl] = rootPageId
+
+        logger.info("submitUrl: _rootPageIds["+url.rawUrl+"] = " + _rootPageIds)
 
         val queueEntry = KrawlQueueEntry(url.canonicalForm, rootPageId, priority = priority)
 
+        logger.info("submitUrl: queueEntry = " + queueEntry)
+
         beforeSchedule(queueEntry)
+
+        logger.info("submitUrl: about to push onto scheduledQueue with domain '"+url.domain+"'")
 
         scheduledQueue.push(url.domain, listOf(queueEntry))
 
@@ -354,7 +367,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
                     onEmptyQueueTimeout()
 
                     if (config.shutdownOnEmptyQueue) {
-                        logger.debug("Closing channel after timeout reached")
+                        logger.info("Closing channel after timeout reached")
                         channel.close()
                         job.cancel()
                         return@produce
@@ -368,7 +381,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
 
             if (action !is KrawlAction.Noop) {
 			    if (visitCount.getAndIncrement() >= config.totalPages && config.totalPages > 0) {
-                    logger.debug("Closing produceKrawlActions")
+                    logger.info("Closing produceKrawlActions")
 					job.cancel()
 					return@produce
                 }
@@ -388,29 +401,38 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
 
         // Make sure we're within depth limit
         if (depth >= config.maxDepth && config.maxDepth != -1) {
-            logger.debug("Max depth!")
+            logger.info("fetch (parent = '"+queueEntry.parent.url+"'): Max depth!")
             return@async KrawlAction.Noop()
         }
 
         // Do a history check
         val history: KrawlHistoryEntry =
-                if (krawlHistory!!.hasBeenSeen(krawlUrl)) { // If it has been seen
+                if (krawlHistory!!.hasBeenSeen(krawlUrl, rootPageId)) { // If it has been seen
                     onRepeatVisit(krawlUrl, parent, depth, rootPageId)
-                    logger.debug("History says no")
+                    logger.info("fetch (parent = '"+queueEntry.parent.url+"'): History says no")
                     return@async KrawlAction.Noop()
                 } else {
-                    krawlHistory!!.insert(krawlUrl)
+                    krawlHistory!!.insert(krawlUrl, rootPageId)
                 }
 
         val visit = shouldVisit(krawlUrl, queueEntry)
+
+        logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): visit = " + visit)
+
         val check = shouldCheck(krawlUrl, queueEntry)
+
+        logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): check = " + check)
 
         if (visit || check) {
             // If we're respecting robots.txt check if it's ok to visit this page
             if (config.respectRobotsTxt && !minder.isSafeToVisit(krawlUrl)) {
-                logger.debug("Robots says no")
+                logger.info("fetch (parent = '"+queueEntry.parent.url+"'): Robots says no")
                 return@async KrawlAction.Noop()
             }
+
+            //select rawpage0_.url as url1_6_, rawpage0_.html as html2_6_, rawpage0_.root_page as root_pag3_6_, rawpage0_.status_code as status_c4_6_, rawpage0_.timestamp as timestam5_6_ from raw_page rawpage0_ where rawpage0_.url='https://www.advancedmd.com/';
+
+            logger.info("fetch (parent = '"+queueEntry.parent.url+"'): URL::: " + krawlUrl.rawUrl)
 
             val doc: RequestResponse = if (visit) {
                 requestProvider.getUrl(krawlUrl)
@@ -421,19 +443,29 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
             // If there was an error on trying to get the doc, call content fetch error
             if (doc is ErrorResponse) {
                 onContentFetchError(krawlUrl, doc.reason)
-                logger.debug("Content fetch error!")
+                logger.error("fetch (parent = '"+queueEntry.parent.url+"'): Content fetch error!")
                 return@async KrawlAction.Noop()
             }
 
             // If there was an error parsing the response, still a content fetch error
             if (doc !is KrawlDocument) {
                 onContentFetchError(krawlUrl, "Krawler was unable to parse the response from the server.")
-                logger.debug("Content fetch error!")
+                logger.info("fetch (parent = '"+queueEntry.parent.url+"'): Content fetch error!")
                 return@async KrawlAction.Noop()
             }
 
             val links = harvestLinks(doc, krawlUrl, history, depth, rootPageId)
-            scheduledQueue.push(krawlUrl.domain, links)
+
+            logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): num links harvested = " + links.size)
+
+            logger.info("fetch: rootPageIds = " + rootPageIds)
+
+            if (rootPageIds.containsValue(rootPageId)) {
+                logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): PUSHING TO QUEUE")
+                scheduledQueue.push(krawlUrl.domain, links)
+            } else {
+                logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): NOT PUSHING TO QUEUE")
+            }
 
             if (visit)
                 return@async KrawlAction.Visit(krawlUrl, doc, queueEntry)
@@ -448,6 +480,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
     private val redirectCodes: Set<Int> = setOf(300, 301, 302, 303, 307, 308)
 
     internal suspend fun doCrawl(channel: ReceiveChannel<KrawlAction>) {
+
         channel.consumeEach { action ->
             when(action) {
                 is KrawlAction.Visit ->
@@ -471,7 +504,8 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      *
      * @return a list of [KrawlQueueEntry] containing the URLs to crawl
      */
-    internal suspend fun harvestLinks(doc: KrawlDocument, url: KrawlUrl,
+    //internal suspend fun harvestLinks(doc: KrawlDocument, url: KrawlUrl,
+    fun harvestLinks(doc: KrawlDocument, url: KrawlUrl,
                                       history: KrawlHistoryEntry, depth: Int, rootPageId: Int): List<KrawlQueueEntry> {
 
         // Handle redirects by getting the location tag of the header and pushing that into the queue

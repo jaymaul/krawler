@@ -2,7 +2,8 @@ group 'io.thelandscape'
 version '0.5.2'
 
 buildscript {
-    ext.kotlin_version = '1.1.60'
+    ext.kotlin_version = '1.2.41'
+    //ext.kotlin_version = '1.1.60'
 
     repositories {
         mavenCentral()
@@ -31,7 +32,7 @@ allprojects {
     }
 }
 
-project(":") {
+project(":krawler") {
     dependencies {
         compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
         compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
@@ -75,6 +76,7 @@ project(":") {
     }
 }
 
+/*
 project(":example") {
     apply plugin: "kotlin"
     apply plugin: "com.github.johnrengelman.shadow"
@@ -92,3 +94,4 @@ project(":example") {
         compile project(":")
     }
 }
+*/

@@ -30,7 +30,7 @@ interface KrawlHistoryIf {
      *
      * @returns KrawlHistoryEntry that was inserted into the history store with generated ID
      */
-    fun insert(url: KrawlUrl): KrawlHistoryEntry
+    fun insert(url: KrawlUrl, rootPageId: Int): KrawlHistoryEntry
 
     /**
      * Returns true if a URL has been seen (visited or checked) during this crawl
@@ -39,7 +39,7 @@ interface KrawlHistoryIf {
      *
      * @return true if URL HAS been visited previously, false otherwise
      */
-    fun hasBeenSeen(url: KrawlUrl): Boolean
+    fun hasBeenSeen(url: KrawlUrl, rootPageId: Int): Boolean
 
     /**
      * Clears the Krawl history prior to the timestamp specified by beforeTime.
