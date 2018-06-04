@@ -62,7 +62,7 @@ class KrawlHistoryHSQLDao(session: Session):
     override fun insert(url: KrawlUrl, rootPageId: Int): KrawlHistoryEntry {
         val retVal = try {
             val entry = KrawlHistoryEntry(-1, url.canonicalForm, rootPageId, LocalDateTime.now())
-            logger.info("Inserting into history: " + entry)
+            logger.debug("Inserting into history: " + entry)
             insert(entry)
         } catch (e: Throwable) {
             logger.error("There was an error inserting ${url.canonicalForm} to the KrawlHistory.")
@@ -76,6 +76,13 @@ class KrawlHistoryHSQLDao(session: Session):
         val convertedTs: String = beforeTime.toString().replace("T", " ")
         val params = mapOf("timestamp" to convertedTs)
         val res = session.update("DELETE FROM ${table.name} WHERE timestamp < :timestamp", params)
+
+        return res
+    }
+
+    override fun clearHistoryByRootPageId(rootPageId: Int): Int {
+        val params = mapOf("rootPageId" to rootPageId)
+        val res = session.update("DELETE FROM ${table.name} WHERE root_page_id = :rootPageId", params)
 
         return res
     }

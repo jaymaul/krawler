@@ -224,23 +224,23 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
         // Convert URL to KrawlUrl so we can get the canonical form
         val url = KrawlUrl.new(url)
 
-        logger.info("submitUrl: krawlUrl.rawUrl = " + url.rawUrl)
+        logger.debug("submitUrl: krawlUrl.rawUrl = " + url.rawUrl)
 
         val rootPageId: Int = maximumUsedId.getAndIncrement()
 
-        logger.info("submitUrl: rootPageId = " + rootPageId)
+        logger.debug("submitUrl: rootPageId = " + rootPageId)
 
         _rootPageIds[url.rawUrl] = rootPageId
 
-        logger.info("submitUrl: _rootPageIds["+url.rawUrl+"] = " + _rootPageIds)
+        logger.debug("submitUrl: _rootPageIds["+url.rawUrl+"] = " + _rootPageIds)
 
         val queueEntry = KrawlQueueEntry(url.canonicalForm, rootPageId, priority = priority)
 
-        logger.info("submitUrl: queueEntry = " + queueEntry)
+        logger.debug("submitUrl: queueEntry = " + queueEntry)
 
         beforeSchedule(queueEntry)
 
-        logger.info("submitUrl: about to push onto scheduledQueue with domain '"+url.domain+"'")
+        logger.debug("submitUrl: about to push onto scheduledQueue with domain '"+url.domain+"'")
 
         scheduledQueue.push(url.domain, listOf(queueEntry))
 
@@ -258,6 +258,12 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
 
         return scheduledQueue.deleteByRootPageId(id)
     }
+
+    fun clearHistoryByRootPage(rootUrl: String): Int {
+        val id: Int = _rootPageIds[rootUrl] ?: return 0
+        return krawlHistory!!.clearHistoryByRootPageId(id)
+    }
+
 
     /**
      * Remove all queue entries that were inserted before beforeTime.
@@ -401,7 +407,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
 
         // Make sure we're within depth limit
         if (depth >= config.maxDepth && config.maxDepth != -1) {
-            logger.info("fetch (parent = '"+queueEntry.parent.url+"'): Max depth!")
+            logger.debug("fetch (parent = '"+queueEntry.parent.url+"'): Max depth!")
             return@async KrawlAction.Noop()
         }
 
@@ -409,7 +415,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
         val history: KrawlHistoryEntry =
                 if (krawlHistory!!.hasBeenSeen(krawlUrl, rootPageId)) { // If it has been seen
                     onRepeatVisit(krawlUrl, parent, depth, rootPageId)
-                    logger.info("fetch (parent = '"+queueEntry.parent.url+"'): History says no")
+                    logger.debug("fetch (parent = '"+queueEntry.parent.url+"'): History says no")
                     return@async KrawlAction.Noop()
                 } else {
                     krawlHistory!!.insert(krawlUrl, rootPageId)
@@ -417,22 +423,22 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
 
         val visit = shouldVisit(krawlUrl, queueEntry)
 
-        logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): visit = " + visit)
+        logger.debug("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): visit = " + visit)
 
         val check = shouldCheck(krawlUrl, queueEntry)
 
-        logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): check = " + check)
+        logger.debug("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): check = " + check)
 
         if (visit || check) {
             // If we're respecting robots.txt check if it's ok to visit this page
             if (config.respectRobotsTxt && !minder.isSafeToVisit(krawlUrl)) {
-                logger.info("fetch (parent = '"+queueEntry.parent.url+"'): Robots says no")
+                logger.debug("fetch (parent = '"+queueEntry.parent.url+"'): Robots says no")
                 return@async KrawlAction.Noop()
             }
 
             //select rawpage0_.url as url1_6_, rawpage0_.html as html2_6_, rawpage0_.root_page as root_pag3_6_, rawpage0_.status_code as status_c4_6_, rawpage0_.timestamp as timestam5_6_ from raw_page rawpage0_ where rawpage0_.url='https://www.advancedmd.com/';
 
-            logger.info("fetch (parent = '"+queueEntry.parent.url+"'): URL::: " + krawlUrl.rawUrl)
+            logger.debug("fetch (parent = '"+queueEntry.parent.url+"'): URL::: " + krawlUrl.rawUrl)
 
             val doc: RequestResponse = if (visit) {
                 requestProvider.getUrl(krawlUrl)
@@ -450,21 +456,21 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
             // If there was an error parsing the response, still a content fetch error
             if (doc !is KrawlDocument) {
                 onContentFetchError(krawlUrl, "Krawler was unable to parse the response from the server.")
-                logger.info("fetch (parent = '"+queueEntry.parent.url+"'): Content fetch error!")
+                logger.error("fetch (parent = '"+queueEntry.parent.url+"'): Content fetch error!")
                 return@async KrawlAction.Noop()
             }
 
             val links = harvestLinks(doc, krawlUrl, history, depth, rootPageId)
 
-            logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): num links harvested = " + links.size)
+            logger.debug("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): num links harvested = " + links.size)
 
-            logger.info("fetch: rootPageIds = " + rootPageIds)
+            logger.debug("fetch: rootPageIds = " + rootPageIds)
 
             if (rootPageIds.containsValue(rootPageId)) {
-                logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): PUSHING TO QUEUE")
+                logger.debug("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): PUSHING TO QUEUE")
                 scheduledQueue.push(krawlUrl.domain, links)
             } else {
-                logger.info("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): NOT PUSHING TO QUEUE")
+                logger.debug("fetch (url = '"+krawlUrl.rawUrl+"', rootPageId = '"+rootPageId+"'): NOT PUSHING TO QUEUE")
             }
 
             if (visit)

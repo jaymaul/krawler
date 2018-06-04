@@ -49,4 +49,6 @@ interface KrawlHistoryIf {
      * @return the number of history entries that were cleared
      */
     fun clearHistory(beforeTime: LocalDateTime = LocalDateTime.now()): Int
+
+    fun clearHistoryByRootPageId(rootPageId: Int): Int
 }
