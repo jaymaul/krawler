@@ -255,7 +255,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      */
     fun removeUrlsByRootPage(rootUrl: String): Int {
         val id: Int = _rootPageIds[rootUrl] ?: return 0
-
+        _rootPageIds.remove(rootUrl)
         return scheduledQueue.deleteByRootPageId(id)
     }
 
