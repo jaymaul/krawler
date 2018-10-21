@@ -147,6 +147,7 @@ class Requests(private val krawlConfig: KrawlConfig,
      * @return [RequestResponse]: The parsed HttpResponse returned by the GET request
      */
     override suspend fun getUrl(url: KrawlUrl): RequestResponse {
+        System.out.println("here is the url: " + url)
         return asyncMakeRequest(url, ::HttpGet, ::KrawlDocument).await()
     }
 

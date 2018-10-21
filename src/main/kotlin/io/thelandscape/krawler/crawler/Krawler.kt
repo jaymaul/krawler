@@ -216,7 +216,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      *
      * @return id of this root page in the rootPageUrl -> Id map
      */
-    fun submitUrl(url: String, priority: Byte = 0,
+    fun submitUrl(url: String, rootPageId: Int, priority: Byte = 0,
                   beforeSchedule: (KrawlQueueEntry) -> Unit = { _ -> }): Int {
 
         logger.info("submitUrl: url = " + url)
@@ -226,7 +226,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
 
         logger.debug("submitUrl: krawlUrl.rawUrl = " + url.rawUrl)
 
-        val rootPageId: Int = maximumUsedId.getAndIncrement()
+        //val rootPageId: Int = maximumUsedId.getAndIncrement()
 
         logger.debug("submitUrl: rootPageId = " + rootPageId)
 
@@ -259,6 +259,10 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
         return scheduledQueue.deleteByRootPageId(id)
     }
 
+    fun removeUrlsByRootPageId(rootPageId: Int): Int {
+        return scheduledQueue.deleteByRootPageId(rootPageId)
+    }
+
     fun clearHistoryByRootPage(rootUrl: String): Int {
         val id: Int = _rootPageIds[rootUrl] ?: return 0
         return krawlHistory!!.clearHistoryByRootPageId(id)
@@ -282,7 +286,10 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      * @param: blocking [Boolean]: (default true) whether to block until completion or immediately return
      *
      */
+
     fun start(seedUrl: List<String>, blocking: Boolean = true) = runBlocking(CommonPool) {
+
+        /*
         // Convert all URLs to KrawlUrls
         val krawlUrls: List<KrawlUrl> = seedUrl.map { KrawlUrl.new(it) }
 
@@ -290,7 +297,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
             val rootPageId: Int = maximumUsedId.getAndIncrement()
             _rootPageIds[it.rawUrl] = rootPageId
             scheduledQueue.push(it.domain, listOf(KrawlQueueEntry(it.canonicalForm, rootPageId)))
-        }
+        }*/
 
         onCrawlStart()
         val urls: Channel<KrawlQueueEntry> = scheduledQueue.krawlQueueEntryChannel
@@ -305,6 +312,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
             job.join()
     }
 
+
     /**
      * Starts the Krawler with the URL provided. This method will call `onCrawlStart()`
      * perform the crawl and then call `onCrawlEnd()`. This method will block for the duration
@@ -312,7 +320,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      *
      * @param: seedUrl String: A single seed URL
      */
-    fun start(seedUrl: String) = start(listOf(seedUrl))
+    //fun start(seedUrl: String) = start(listOf(seedUrl))
 
     /**
      * Starts the Krawler with the URL provided. This method will call `onCrawlStart()`
@@ -330,6 +338,7 @@ abstract class Krawler(val config: KrawlConfig = KrawlConfig(),
      *
      * @param: seedUrl List<String>: A list of seed URLs
      */
+
     fun startNonblocking(seedUrl: List<String>) {
         start(seedUrl, false)
     }
